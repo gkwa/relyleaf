@@ -1,7 +1,7 @@
 minikube delete
 minikube start
 kubectl get configmaps --all-namespaces
-minikube addons enable ingress
+minikube addons enable ingress --alsologtostderr
 kubectl get configmaps --all-namespaces
 kubectl apply -f redis-deployment.yaml
 kubectl apply -f redis-service.yaml
