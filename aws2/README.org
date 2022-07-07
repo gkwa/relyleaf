@@ -1,0 +1,70 @@
+* 
+** docs
+
+https://minikube.sigs.k8s.io/docs/tutorials/nginx_tcp_udp_ingress/
+https://stackoverflow.com/a/69802398/1495086
+https://kubernetes.github.io/ingress-nginx/user-guide/exposing-tcp-udp-services/
+
+** teardown
+
+#+begin_example
+cd /Users/mtm/pdev/taylormonacelli/smoketoo/example2
+bash -x teardown.sh
+
+cd /Users/mtm/pdev/taylormonacelli/relyleaf/aws2
+bash -x teardown.sh
+
+k delete deployment/redis-deployment --namespace default
+k delete service/redis --namespace default
+k delete ingress/redis
+#+end_example
+
+** setup
+
+#+begin_example
+cd /Users/mtm/pdev/taylormonacelli/smoketoo/example2
+time bash -x setup.sh
+
+cd /Users/mtm/pdev/taylormonacelli/relyleaf
+k apply -f aws2
+#+end_example
+
+** Notice here that I've adjusted service name from redis-service to just redis.
+
+#+begin_example
+kubectl patch configmap tcp-services -n ingress-nginx --patch '{"data":{"6379":"default/redis:6379"}}'
+#+end_example
+
+** verify
+
+kubectl get configmap tcp-services -n ingress-nginx -o yaml
+
+** 
+
+#+BEGIN_SRC sh :results output replace
+cat <<'__eot__' >/tmp/ingress-nginx-values.yaml
+tcp:
+   6379: "default/redis:6379"
+__eot__
+#+END_SRC
+helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx --namespace ingress-nginx --values /tmp/ingress-nginx-values.yaml
+
+** patch
+
+cd aws2
+kubectl patch deployment ingress-nginx-controller --patch "$(cat ingress-nginx-controller-patch.yaml.disabled)" -n ingress-nginx
+
+** run main.sh
+
+cd aws2
+bash -x main.sh
+
+** 
+
+kubectl get deployment ingress-nginx-controller -n ingress-nginx -o yaml
+
+** test
+
+# telnet $(minikube ip) 6379
+telnet redis.mindevent.streambox.com 6379
+redis-cli -p 6379 -h redis.mindevent.streambox.com ping
