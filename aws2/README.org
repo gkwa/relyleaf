@@ -1,70 +1,75 @@
 * 
+** teardown
+
+#+begin_example
+time { cd /Users/mtm/pdev/taylormonacelli/relyleaf/aws2 && bash -x teardown.sh; }
+#+end_example
+
+** setup
+
+#+begin_example
+cd /Users/mtm/pdev/taylormonacelli/relyleaf/aws2 && time bash -x setup.sh
+#+end_example
+
 ** docs
 
 https://minikube.sigs.k8s.io/docs/tutorials/nginx_tcp_udp_ingress/
 https://stackoverflow.com/a/69802398/1495086
 https://kubernetes.github.io/ingress-nginx/user-guide/exposing-tcp-udp-services/
 
-** teardown
+** aws console
+
+# Route53
+open "https://us-east-1.console.aws.amazon.com/route53/v2/hostedzones#ListRecordSets/ZYM2WVE2N8MU5"
+
+# Load balancer
+open "https://us-east-1.console.aws.amazon.com/ec2/v2/home?region=us-east-1#LoadBalancers:sort=loadBalancerName"
+
+** setup and teardown all in one line
 
 #+begin_example
-cd /Users/mtm/pdev/taylormonacelli/smoketoo/example2
-bash -x teardown.sh
-
-cd /Users/mtm/pdev/taylormonacelli/relyleaf/aws2
-bash -x teardown.sh
-
-k delete deployment/redis-deployment --namespace default
-k delete service/redis --namespace default
-k delete ingress/redis
+time { cd /Users/mtm/pdev/taylormonacelli/relyleaf/aws2 && bash -x teardown.sh; cd /Users/mtm/pdev/taylormonacelli/relyleaf/aws2 && time bash -x setup.sh; }
 #+end_example
 
-** setup
+** upgrade ingress-nginx
+*** testing this
+
+time helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx --namespace ingress-nginx --set tcp.6379="default/redis:6379"
+
+*** this works
+
+https://stackoverflow.com/a/69802398/1495086
+
+** test
+*** this is how to test on minikube
+
+# telnet $(minikube ip) 6379
+
+*** test
+
+Testing from my mbp/workstation is often wrong because dns fails
+
+So, test from remote host taylor-linux-ubuntu-us-east-2.streambox.com
+
+ssh root@taylor-linux-ubuntu-us-east-2.streambox.com
+apt-get -qq update
+apt-get -qy install redis-tools
+
+ssh root@taylor-linux-ubuntu-us-east-2.streambox.com redis-cli -p 6379 -h redis.mindevent.streambox.com ping
+telnet redis.mindevent.streambox.com 6379
+redis-cli -p 6379 -h redis.mindevent.streambox.com ping
+
+**** log displaying that it works as expected
 
 #+begin_example
-cd /Users/mtm/pdev/taylormonacelli/smoketoo/example2
-time bash -x setup.sh
-
-cd /Users/mtm/pdev/taylormonacelli/relyleaf
-k apply -f aws2
+[mtm@taylors-MacBook-Pro:~(master)]$ redis-cli -p 6379 -h redis.mindevent.streambox.com ping
+PONG
+[mtm@taylors-MacBook-Pro:~(master)]$
 #+end_example
 
-** Notice here that I've adjusted service name from redis-service to just redis.
+** chicken scratch
+*** skip this: Notice here that I've adjusted service name from redis-service to just redis.
 
 #+begin_example
 kubectl patch configmap tcp-services -n ingress-nginx --patch '{"data":{"6379":"default/redis:6379"}}'
 #+end_example
-
-** verify
-
-kubectl get configmap tcp-services -n ingress-nginx -o yaml
-
-** 
-
-#+BEGIN_SRC sh :results output replace
-cat <<'__eot__' >/tmp/ingress-nginx-values.yaml
-tcp:
-   6379: "default/redis:6379"
-__eot__
-#+END_SRC
-helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx --namespace ingress-nginx --values /tmp/ingress-nginx-values.yaml
-
-** patch
-
-cd aws2
-kubectl patch deployment ingress-nginx-controller --patch "$(cat ingress-nginx-controller-patch.yaml.disabled)" -n ingress-nginx
-
-** run main.sh
-
-cd aws2
-bash -x main.sh
-
-** 
-
-kubectl get deployment ingress-nginx-controller -n ingress-nginx -o yaml
-
-** test
-
-# telnet $(minikube ip) 6379
-telnet redis.mindevent.streambox.com 6379
-redis-cli -p 6379 -h redis.mindevent.streambox.com ping

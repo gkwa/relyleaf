@@ -8,7 +8,7 @@ spec:
     app: redis
   type: ClusterIP
   ports:
-    - name: tcp-port
-      port: 6379
-      targetPort: 6379
-      protocol: TCP
+  - name: tcp-port
+    port: 6379
+    targetPort: 6379
+    protocol: TCP
